@@ -74,58 +74,6 @@ export async function processVideo(
   callbacks.onDone();
 }
 
-export interface SummarizeCallbacks {
-  onStep: (step: StepEvent) => void;
-  onToken: (token: string) => void;
-  onDone: () => void;
-  onError: (error: string) => void;
-}
-
-export async function summarizeVideo(
-  text: string,
-  apiKey: string,
-  model: string,
-  callbacks: SummarizeCallbacks
-): Promise<void> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 180000);
-
-  try {
-    const response = await fetch("/api/summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, apiKey, model }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: "请求失败" }));
-      callbacks.onError(err.error || `HTTP ${response.status}`);
-      return;
-    }
-
-    if (!response.body) {
-      callbacks.onError("无法读取响应流");
-      return;
-    }
-
-    await readSSE(response.body, {
-      step: (data) => callbacks.onStep(data),
-      summaryToken: (data) => callbacks.onToken(data.token),
-      summaryComplete: () => callbacks.onDone(),
-    });
-  } catch (e: any) {
-    clearTimeout(timer);
-    if (e.name === "AbortError") {
-      callbacks.onError("请求超时（3分钟），请检查网络或换用更快的模型");
-    } else {
-      callbacks.onError(e.message || "未知错误");
-    }
-    return;
-  }
-  clearTimeout(timer);
-}
-
 async function readSSE(
   body: ReadableStream<Uint8Array>,
   handlers: Record<string, ((data: any) => void) | undefined>

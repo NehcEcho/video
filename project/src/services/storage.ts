@@ -1,10 +1,7 @@
 const STORAGE_KEYS = {
   API_KEY: "bili_transcriber_api_key",
-  MODEL: "bili_transcriber_model",
   HISTORY: "bili_transcriber_history",
 } as const;
-
-const DEFAULT_MODEL = "Qwen/Qwen3-Omni-30B-A3B-Thinking";
 
 export interface HistoryEntry {
   id: string;
@@ -14,7 +11,6 @@ export interface HistoryEntry {
   thumbnail: string;
   timestamp: string;
   subtitleText: string;
-  summaryText: string;
   createdAt: number;
 }
 
@@ -24,14 +20,6 @@ export function getApiKey(): string {
 
 export function saveApiKey(key: string): void {
   localStorage.setItem(STORAGE_KEYS.API_KEY, key);
-}
-
-export function getModel(): string {
-  return localStorage.getItem(STORAGE_KEYS.MODEL) || DEFAULT_MODEL;
-}
-
-export function saveModel(model: string): void {
-  localStorage.setItem(STORAGE_KEYS.MODEL, model);
 }
 
 export function getHistory(): HistoryEntry[] {

@@ -4,11 +4,10 @@ import { VideoInput } from "./components/VideoInput";
 import { VideoInfoCard } from "./components/VideoInfoCard";
 import { ProcessingStatus } from "./components/ProcessingStatus";
 import { TranscriptResult } from "./components/TranscriptResult";
-import { SummaryResult } from "./components/SummaryResult";
 import { SettingsDrawer } from "./components/SettingsDrawer";
 import { HistorySidebar } from "./components/HistorySidebar";
-import { processVideo, summarizeVideo, VideoInfo, SubtitleSegment, StepEvent, SubtitleData } from "@/services/api";
-import { getApiKey, getModel, getHistory, saveHistoryEntry, deleteHistoryEntry, HistoryEntry } from "@/services/storage";
+import { processVideo, VideoInfo, SubtitleSegment, StepEvent, SubtitleData } from "@/services/api";
+import { getApiKey, getHistory, saveHistoryEntry, deleteHistoryEntry, HistoryEntry } from "@/services/storage";
 
 type AppState = "idle" | "processing" | "completed";
 
@@ -36,13 +35,11 @@ export default function App() {
   const [subtitleText, setSubtitleText] = useState("");
   const [subtitleSegments, setSubtitleSegments] = useState<SubtitleSegment[]>([]);
   const [isTranscribed, setIsTranscribed] = useState(false);
-  const [summaryText, setSummaryText] = useState("");
-  const [isSummarizing, setIsSummarizing] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   const [historyItems, setHistoryItems] = useState<HistoryEntry[]>(() => getHistory());
 
-  const currentRef = useRef({ title: "", author: "", thumbnail: "", bvid: "", subtitleText: "", summaryText: "" });
+  const currentRef = useRef({ title: "", author: "", thumbnail: "", bvid: "", subtitleText: "" });
 
   const saveToHistory = useCallback(() => {
     const cur = currentRef.current;
@@ -54,7 +51,6 @@ export default function App() {
       thumbnail: cur.thumbnail,
       timestamp: new Date().toLocaleString(),
       subtitleText: cur.subtitleText,
-      summaryText: cur.summaryText,
     });
     setHistoryItems(getHistory());
   }, []);
@@ -71,8 +67,6 @@ export default function App() {
     setSubtitleText(item.subtitleText);
     setSubtitleSegments([]);
     setIsTranscribed(false);
-    setSummaryText(item.summaryText);
-    setIsSummarizing(false);
     setAppState("completed");
     setHistoryOpen(false);
   }, []);
@@ -94,11 +88,9 @@ export default function App() {
     setSubtitleText("");
     setSubtitleSegments([]);
     setIsTranscribed(false);
-    setSummaryText("");
-    setIsSummarizing(false);
     setErrorMsg("");
 
-    currentRef.current = { title: "", author: "", thumbnail: "", bvid: "", subtitleText: "", summaryText: "" };
+    currentRef.current = { title: "", author: "", thumbnail: "", bvid: "", subtitleText: "" };
 
     const updateStep = (stepId: string, status: Step["status"], label?: string) => {
       setSteps(prev => prev.map(s =>
@@ -141,41 +133,6 @@ export default function App() {
     });
   };
 
-  const handleSummarize = async () => {
-    if (!subtitleText) return;
-
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      setSettingsOpen(true);
-      return;
-    }
-
-    setErrorMsg("");
-    setIsSummarizing(true);
-    setSummaryText("");
-
-    const model = getModel();
-
-    await summarizeVideo(subtitleText, apiKey, model, {
-      onStep: () => {},
-      onToken: (token) => {
-        setSummaryText(prev => {
-          const next = prev + token;
-          currentRef.current.summaryText = next;
-          return next;
-        });
-      },
-      onDone: () => {
-        setIsSummarizing(false);
-        saveToHistory();
-      },
-      onError: (error) => {
-        setErrorMsg(error);
-        setIsSummarizing(false);
-      },
-    });
-  };
-
   const handleSaveSettings = () => {};
 
   const handleReset = () => {
@@ -185,8 +142,6 @@ export default function App() {
     setSubtitleText("");
     setSubtitleSegments([]);
     setIsTranscribed(false);
-    setSummaryText("");
-    setIsSummarizing(false);
     setErrorMsg("");
   };
 
@@ -213,7 +168,6 @@ export default function App() {
   } : null;
 
   const hasText = subtitleText.length > 0;
-  const canSummarize = appState === "completed" && !isSummarizing && hasText;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30">
@@ -270,31 +224,6 @@ export default function App() {
                       <p className="text-red-400 text-xs mt-1">请检查 API Key 是否正确</p>
                     </div>
                   </div>
-                )}
-
-                {canSummarize && !summaryText && (
-                  <div className="w-full max-w-3xl mx-auto px-6 pb-6">
-                    {errorMsg && (
-                      <div className="bg-red-50 rounded-xl border border-red-200 p-4 mb-4 text-center">
-                        <p className="text-red-700 text-sm font-medium mb-1">总结失败</p>
-                        <p className="text-red-600 text-xs font-mono break-all">{errorMsg}</p>
-                        <p className="text-red-400 text-xs mt-1">请检查 API Key 和模型是否有效</p>
-                      </div>
-                    )}
-                    <button
-                      onClick={handleSummarize}
-                      className="w-full h-12 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:shadow-lg hover:shadow-purple-500/25 text-white font-medium transition-all flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      AI 视频总结
-                    </button>
-                  </div>
-                )}
-
-                {(summaryText || isSummarizing) && (
-                  <SummaryResult summary={summaryText} isStreaming={isSummarizing} model={getModel()} />
                 )}
 
                 <div className="w-full max-w-3xl mx-auto px-6 pb-12">

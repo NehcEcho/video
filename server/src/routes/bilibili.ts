@@ -14,14 +14,12 @@ import {
   cleanupFile,
 } from "../services/ffmpeg.js";
 import {
-  summarizeText,
-  summarizeAudio,
+  transcribeAudio,
 } from "../services/siliconflow.js";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
 
 const TEMP_DIR = join(process.cwd(), "temp");
-const EXTRACT_MODEL = "Qwen/Qwen3-Omni-30B-A3B-Thinking";
 
 function ensureTempDir() {
   if (!existsSync(TEMP_DIR)) {
@@ -109,7 +107,7 @@ router.post("/process", async (req: Request, res: Response) => {
 
         send("step", { step: "transcribe", status: "processing", label: "转写: AI 语音识别中" });
 
-        const transcript = await summarizeAudio(audioB64, apiKey, EXTRACT_MODEL, (token) => {
+        const transcript = await transcribeAudio(audioB64, apiKey, (token) => {
           send("transcribeToken", { token });
         });
 
@@ -123,52 +121,6 @@ router.post("/process", async (req: Request, res: Response) => {
     }
 
     send("step", { step: "complete", status: "completed", label: "提取完成" });
-    res.end();
-  } catch (e: any) {
-    if (!res.headersSent) {
-      res.status(500).json({ error: e.message || "服务器内部错误" });
-    } else {
-      res.end();
-    }
-  }
-});
-
-router.post("/summarize", async (req: Request, res: Response) => {
-  try {
-    const { text, apiKey, model } = req.body;
-
-    if (!text) {
-      res.status(400).json({ error: "请提供字幕文本" });
-      return;
-    }
-    if (!apiKey) {
-      res.status(400).json({ error: "请提供 SiliconFlow API Key" });
-      return;
-    }
-
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    });
-
-    const send = (event: string, data: any) => {
-      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    };
-
-    send("step", { step: "summarize", status: "processing", label: "AI 总结中" });
-
-    try {
-      await summarizeText(text, apiKey, model, (token) => {
-        send("summaryToken", { token });
-      });
-      send("summaryComplete", {});
-      send("step", { step: "summarize", status: "completed", label: "总结完成" });
-    } catch (e: any) {
-      send("step", { step: "summarize", status: "error", label: "总结失败", error: e.message });
-    }
-
     res.end();
   } catch (e: any) {
     if (!res.headersSent) {
