@@ -135,7 +135,7 @@ export default function App() {
         saveToHistory();
       },
       onError: (error: string) => {
-        console.error("处理失败:", error);
+        setErrorMsg("提取失败: " + error);
         setAppState("completed");
       },
     });
@@ -262,6 +262,16 @@ export default function App() {
                   />
                 )}
 
+                {!hasText && errorMsg && (
+                  <div className="w-full max-w-3xl mx-auto px-6 pb-6">
+                    <div className="bg-red-50 rounded-xl border border-red-200 p-4 text-center">
+                      <p className="text-red-700 text-sm font-medium mb-1">提取失败</p>
+                      <p className="text-red-600 text-xs font-mono break-all">{errorMsg}</p>
+                      <p className="text-red-400 text-xs mt-1">请检查 API Key 是否正确</p>
+                    </div>
+                  </div>
+                )}
+
                 {canSummarize && !summaryText && (
                   <div className="w-full max-w-3xl mx-auto px-6 pb-6">
                     {errorMsg && (
@@ -284,7 +294,7 @@ export default function App() {
                 )}
 
                 {(summaryText || isSummarizing) && (
-                  <SummaryResult summary={summaryText} isStreaming={isSummarizing} />
+                  <SummaryResult summary={summaryText} isStreaming={isSummarizing} model={getModel()} />
                 )}
 
                 <div className="w-full max-w-3xl mx-auto px-6 pb-12">

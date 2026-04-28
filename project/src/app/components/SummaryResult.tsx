@@ -3,9 +3,10 @@ import { Sparkles } from "lucide-react";
 interface SummaryResultProps {
   summary: string;
   isStreaming?: boolean;
+  model?: string;
 }
 
-export function SummaryResult({ summary, isStreaming }: SummaryResultProps) {
+export function SummaryResult({ summary, isStreaming, model }: SummaryResultProps) {
   if (!summary && !isStreaming) return null;
 
   return (
@@ -18,7 +19,7 @@ export function SummaryResult({ summary, isStreaming }: SummaryResultProps) {
           <div>
             <h3 className="font-medium text-foreground">AI 视频总结</h3>
             <p className="text-xs text-muted-foreground">
-              {isStreaming ? "Qwen3-Omni 正在分析中..." : "由 Qwen3-Omni-30B-A3B-Thinking 生成"}
+              {isStreaming ? `${model || "AI"} 正在分析中...` : `由 ${model || "AI"} 生成`}
             </p>
           </div>
           {isStreaming && (
