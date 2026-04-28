@@ -38,6 +38,7 @@ export default function App() {
   const [isTranscribed, setIsTranscribed] = useState(false);
   const [summaryText, setSummaryText] = useState("");
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const [historyItems, setHistoryItems] = useState<HistoryEntry[]>(() => getHistory());
 
@@ -95,6 +96,7 @@ export default function App() {
     setIsTranscribed(false);
     setSummaryText("");
     setIsSummarizing(false);
+    setErrorMsg("");
 
     currentRef.current = { title: "", author: "", thumbnail: "", bvid: "", subtitleText: "", summaryText: "" };
 
@@ -148,6 +150,7 @@ export default function App() {
       return;
     }
 
+    setErrorMsg("");
     setIsSummarizing(true);
     setSummaryText("");
 
@@ -167,7 +170,7 @@ export default function App() {
         saveToHistory();
       },
       onError: (error) => {
-        console.error("总结失败:", error);
+        setErrorMsg(error);
         setIsSummarizing(false);
       },
     });
@@ -184,6 +187,7 @@ export default function App() {
     setIsTranscribed(false);
     setSummaryText("");
     setIsSummarizing(false);
+    setErrorMsg("");
   };
 
   const formatDuration = (seconds: number): string => {
@@ -260,6 +264,13 @@ export default function App() {
 
                 {canSummarize && !summaryText && (
                   <div className="w-full max-w-3xl mx-auto px-6 pb-6">
+                    {errorMsg && (
+                      <div className="bg-red-50 rounded-xl border border-red-200 p-4 mb-4 text-center">
+                        <p className="text-red-700 text-sm font-medium mb-1">总结失败</p>
+                        <p className="text-red-600 text-xs font-mono break-all">{errorMsg}</p>
+                        <p className="text-red-400 text-xs mt-1">请检查 API Key 和模型是否有效</p>
+                      </div>
+                    )}
                     <button
                       onClick={handleSummarize}
                       className="w-full h-12 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:shadow-lg hover:shadow-purple-500/25 text-white font-medium transition-all flex items-center justify-center gap-2"
