@@ -1,8 +1,8 @@
 @echo off
 chcp 65001 >nul
 
-set "ROOT=%~dp0"
-if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
+set "ROOT=%~dp0.."
+for %%i in ("%ROOT%") do set "ROOT=%%~fi"
 
 echo ===============================================
 echo    Bilibili Subtitle Extract + AI Summary
@@ -89,7 +89,7 @@ echo.
 echo ===============================================
 echo   Setup complete!
 echo.
-echo   To start: double-click start.bat
+echo   To start: double-click scripts\start.bat
 echo   Or manually:
 echo     terminal 1: cd server ^&^& npm run dev
 echo     terminal 2: cd project ^&^& npm run dev

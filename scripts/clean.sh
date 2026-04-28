@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "==============================================="
 echo "  Project Cleanup"
@@ -34,6 +34,6 @@ fi
 echo ""
 echo "==============================================="
 echo "  Cleanup complete."
-echo "  Run start.sh to restart services."
+echo "  Run scripts/start.sh to restart services."
 echo "==============================================="
 echo ""

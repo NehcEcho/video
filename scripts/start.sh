@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "╔══════════════════════════════════════════════╗"
 echo "║      B站视频字幕提取 + AI 总结 v1.0          ║"

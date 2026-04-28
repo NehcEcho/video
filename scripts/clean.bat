@@ -1,8 +1,8 @@
 @echo off
 chcp 65001 >nul
 
-set "ROOT=%~dp0"
-if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
+set "ROOT=%~dp0.."
+for %%i in ("%ROOT%") do set "ROOT=%%~fi"
 
 echo ===============================================
 echo   Project Cleanup
@@ -20,8 +20,8 @@ echo   Done.
 
 echo.
 echo [2] Cleaning temp files...
-if exist "server\temp\" (
-    rmdir /s /q "server\temp" 2>nul
+if exist "%ROOT%\server\temp\" (
+    rmdir /s /q "%ROOT%\server\temp" 2>nul
     echo   server/temp deleted
 ) else (
     echo   server/temp not found
@@ -29,8 +29,8 @@ if exist "server\temp\" (
 
 echo.
 echo [3] Cleaning build output...
-if exist "project\dist\" (
-    rmdir /s /q "project\dist" 2>nul
+if exist "%ROOT%\project\dist\" (
+    rmdir /s /q "%ROOT%\project\dist" 2>nul
     echo   project/dist deleted
 ) else (
     echo   project/dist not found
@@ -39,7 +39,7 @@ if exist "project\dist\" (
 echo.
 echo ===============================================
 echo   Cleanup complete.
-echo   Run start.bat to restart services.
+echo   Run scripts\start.bat to restart services.
 echo ===============================================
 echo.
 pause

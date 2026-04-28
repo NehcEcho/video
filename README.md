@@ -13,10 +13,10 @@
 
 ```bash
 # 1. 一键安装依赖 + yt-dlp + ffmpeg
-双击 install.bat
+双击 scripts\install.bat
 
 # 2. 启动 (自动打开两个终端窗口 + 浏览器)
-双击 start.bat
+双击 scripts\start.bat
 
 # 3. 打开 http://localhost:1659
 #    右上角设置 → 填入 SiliconFlow API Key → 保存
@@ -70,8 +70,10 @@ video/
 │       ├── routes/       # API 路由
 │       ├── services/     # B站API / ffmpeg / SiliconFlow
 │       └── utils/
-├── install.bat           # 一键安装脚本
-└── start.bat             # 一键启动脚本
+├── scripts/              # 启动/安装/清理脚本
+│   ├── install.bat / .sh
+│   ├── start.bat / .sh
+│   └── clean.bat / .sh
 ```
 
 ## API 端点
