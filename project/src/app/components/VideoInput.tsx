@@ -1,18 +1,36 @@
 import { useState } from "react";
-import { Search, Sparkles } from "lucide-react";
+import { Search, Sparkles, UserCircle, FileText } from "lucide-react";
+
+export type TranscribeMode = "speaker" | "plain";
 
 interface VideoInputProps {
-  onSubmit: (input: string) => void;
+  onSubmit: (input: string, mode: TranscribeMode) => void;
   isProcessing: boolean;
 }
 
+const MODE_OPTIONS: { id: TranscribeMode; icon: typeof UserCircle; title: string; description: string }[] = [
+  {
+    id: "speaker",
+    icon: UserCircle,
+    title: "说话人识别",
+    description: "自动区分不同角色，标注「角色A」「角色B」",
+  },
+  {
+    id: "plain",
+    icon: FileText,
+    title: "纯文本转写",
+    description: "只输出文字内容，不区分说话人",
+  },
+];
+
 export function VideoInput({ onSubmit, isProcessing }: VideoInputProps) {
   const [input, setInput] = useState("");
+  const [mode, setMode] = useState<TranscribeMode>("speaker");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isProcessing) {
-      onSubmit(input.trim());
+      onSubmit(input.trim(), mode);
     }
   };
 
@@ -64,6 +82,49 @@ export function VideoInput({ onSubmit, isProcessing }: VideoInputProps) {
           </button>
         </div>
       </form>
+
+      <div className="mt-6">
+        <p className="text-xs text-muted-foreground mb-3">转写模式</p>
+        <div className="grid grid-cols-2 gap-3">
+          {MODE_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const selected = mode === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setMode(opt.id)}
+                className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                  selected
+                    ? "border-teal-500 bg-teal-50/60 shadow-sm"
+                    : "border-border bg-white hover:border-teal-300"
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                  selected
+                    ? "bg-teal-100"
+                    : "bg-gray-50"
+                }`}>
+                  <Icon className={`w-5 h-5 ${selected ? "text-teal-600" : "text-muted-foreground"}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm font-medium mb-0.5 ${selected ? "text-teal-700" : "text-foreground"}`}>
+                    {opt.title}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{opt.description}</div>
+                </div>
+                {selected && (
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center mt-0.5">
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { Header } from "./components/Header";
-import { VideoInput } from "./components/VideoInput";
+import { VideoInput, TranscribeMode } from "./components/VideoInput";
 import { VideoInfoCard } from "./components/VideoInfoCard";
 import { ProcessingStatus } from "./components/ProcessingStatus";
 import { TranscriptResult } from "./components/TranscriptResult";
@@ -75,7 +75,7 @@ export default function App() {
     setHistoryItems(getHistory());
   }, []);
 
-  const handleSubmit = async (input: string) => {
+  const handleSubmit = async (input: string, mode: TranscribeMode) => {
     const apiKey = getApiKey();
     if (!apiKey) {
       setSettingsOpen(true);
@@ -98,7 +98,7 @@ export default function App() {
       ));
     };
 
-    await processVideo(input, apiKey, {
+    await processVideo(input, apiKey, mode, {
       onStep: (event: StepEvent) => {
         updateStep(event.step, event.status, event.label);
       },

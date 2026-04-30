@@ -45,12 +45,13 @@ export interface ProcessCallbacks {
 export async function processVideo(
   input: string,
   apiKey: string,
+  mode: string,
   callbacks: ProcessCallbacks
 ): Promise<void> {
   const response = await fetch("/api/process", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input, apiKey }),
+    body: JSON.stringify({ input, apiKey, mode }),
   });
 
   if (!response.ok) {

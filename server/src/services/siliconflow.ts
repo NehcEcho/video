@@ -1,11 +1,18 @@
 const SILICONFLOW_API = "https://api.siliconflow.cn/v1/chat/completions";
 const TRANS_MODEL = "Qwen/Qwen3-Omni-30B-A3B-Thinking";
 
+const PROMPTS: Record<string, string> = {
+  speaker: "请将这段音频的内容转写成文字。请通过音色区分不同的角色，用「角色A」「角色B」等标注不同人物。如果只有一个人说话则不需要标注。只输出转写结果，不要添加任何总结、分析或额外说明。",
+  plain: "请将这段音频的内容转写成文字。只输出转写结果，不要添加任何总结、分析或额外说明。",
+};
+
 export async function transcribeAudio(
   audioBase64: string,
   apiKey: string,
+  mode: string = "speaker",
   onToken?: (token: string) => void
 ): Promise<string> {
+  const prompt = PROMPTS[mode] || PROMPTS.speaker;
   const response = await fetch(SILICONFLOW_API, {
     method: "POST",
     headers: {
@@ -20,7 +27,7 @@ export async function transcribeAudio(
           content: [
             {
               type: "text",
-              text: "请将这段音频的内容转写成文字。请通过音色区分不同的角色，用「角色A」「角色B」等标注不同人物。如果只有一个人说话则不需要标注。只输出转写结果，不要添加任何总结、分析或额外说明。",
+              text: prompt,
             },
             {
               type: "audio_url",

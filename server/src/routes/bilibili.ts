@@ -31,7 +31,7 @@ const router = Router();
 
 router.post("/process", async (req: Request, res: Response) => {
   try {
-    const { input, apiKey } = req.body;
+    const { input, apiKey, mode } = req.body;
 
     if (!input) {
       res.status(400).json({ error: "请输入 B站链接或 BV 号" });
@@ -107,7 +107,7 @@ router.post("/process", async (req: Request, res: Response) => {
 
         send("step", { step: "transcribe", status: "processing", label: "转写: AI 语音识别中" });
 
-        const transcript = await transcribeAudio(audioB64, apiKey, (token) => {
+        const transcript = await transcribeAudio(audioB64, apiKey, mode, (token) => {
           send("transcribeToken", { token });
         });
 
