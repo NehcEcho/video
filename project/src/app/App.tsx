@@ -65,6 +65,7 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [collapsedTasks, setCollapsedTasks] = useState<Set<string>>(new Set());
   const [historyItems, setHistoryItems] = useState<HistoryEntry[]>(() => getHistory());
 
   const taskMetaRef = useRef<Record<string, TaskMeta>>({});
@@ -135,7 +136,7 @@ export default function App() {
       };
     });
 
-    setTasks(newTasks);
+    setTasks(prev => [...prev, ...newTasks]);
 
     newTasks.forEach(task => {
       const taskId = task.id;
@@ -191,8 +192,17 @@ export default function App() {
 
   const handleReset = () => {
     setTasks([]);
+    setCollapsedTasks(new Set());
     taskMetaRef.current = {};
   };
+
+  const toggleCollapse = useCallback((taskId: string) => {
+    setCollapsedTasks(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
+      return next;
+    });
+  }, []);
 
   const formatDuration = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
@@ -218,6 +228,11 @@ export default function App() {
 
   const allDone = tasks.length > 0 && tasks.every(t => t.state === "completed" || t.state === "error");
 
+  const handleDismissTask = useCallback((taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    delete taskMetaRef.current[taskId];
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30">
       <Header
@@ -229,12 +244,24 @@ export default function App() {
       />
 
       <main className="pt-8 pb-16">
-        {tasks.length === 0 && (
-          <VideoInput onSubmit={handleSubmit} isProcessing={false} />
-        )}
+        <VideoInput onSubmit={handleSubmit} isProcessing={false} />
 
         {tasks.length > 0 && (
           <>
+            <div className="w-full max-w-3xl mx-auto px-6 my-8">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {tasks.filter(t => t.state === "processing").length} 个处理中 · {tasks.filter(t => t.state === "completed").length} 个已完成
+                </span>
+                <button
+                  onClick={handleReset}
+                  className="text-xs text-muted-foreground hover:text-red-600 transition-colors"
+                >
+                  清空列表
+                </button>
+              </div>
+            </div>
+
             {tasks.map((task, i) => {
               const hasText = task.subtitleText.length > 0;
               const displayInfo = task.videoInfo ? formatVideoInfo(task.videoInfo) : null;
@@ -269,20 +296,51 @@ export default function App() {
                   )}
 
                   {task.state === "completed" && hasText && (
-                    <TranscriptResult
-                      segments={task.subtitleSegments.length > 0
-                        ? task.subtitleSegments.map(s => ({
-                            time: formatDuration(s.start),
-                            text: s.text,
-                          }))
-                        : task.subtitleText.split("\n").filter(Boolean).map((text, idx) => ({
-                            time: "",
-                            text,
-                          }))
-                      }
-                      fullText={task.subtitleText}
-                      label={task.isTranscribed ? "AI 转写结果" : "字幕结果"}
-                    />
+                    <>
+                      <div className="w-full max-w-3xl mx-auto px-6 mt-4">
+                        <button
+                          onClick={() => toggleCollapse(task.id)}
+                          className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 transition-colors"
+                        >
+                          <svg className={`w-3.5 h-3.5 transition-transform ${collapsedTasks.has(task.id) ? "" : "rotate-180"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                          <span>{collapsedTasks.has(task.id) ? "展开文本" : "收起文本"}</span>
+                          <span className="text-muted-foreground">({task.subtitleText.length} 字)</span>
+                        </button>
+                      </div>
+
+                      {!collapsedTasks.has(task.id) && (
+                        <TranscriptResult
+                          segments={task.subtitleSegments.length > 0
+                            ? task.subtitleSegments.map(s => ({
+                                time: formatDuration(s.start),
+                                text: s.text,
+                              }))
+                            : task.subtitleText.split("\n").filter(Boolean).map((text, idx) => ({
+                                time: "",
+                                text,
+                              }))
+                          }
+                          fullText={task.subtitleText}
+                          label={task.isTranscribed ? "AI 转写结果" : "字幕结果"}
+                        />
+                      )}
+
+                      {!collapsedTasks.has(task.id) && (
+                        <div className="w-full max-w-3xl mx-auto px-6 mt-2 pb-2">
+                          <button
+                            onClick={() => toggleCollapse(task.id)}
+                            className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                            <span>收起文本</span>
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {(task.state === "error" || (task.state === "completed" && !hasText && task.errorMsg)) && (
@@ -297,17 +355,6 @@ export default function App() {
                 </div>
               );
             })}
-
-            {allDone && (
-              <div className="w-full max-w-3xl mx-auto px-6 pb-12">
-                <button
-                  onClick={handleReset}
-                  className="w-full h-12 rounded-xl border-2 border-dashed border-teal-300 hover:border-teal-400 hover:bg-teal-50/50 text-teal-700 font-medium transition-colors"
-                >
-                  处理新视频
-                </button>
-              </div>
-            )}
           </>
         )}
       </main>
