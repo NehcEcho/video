@@ -1,13 +1,13 @@
-# B站视频字幕提取 + AI 总结
+# B站视频字幕提取
 
-输入 B站 BV 号或链接，自动提取字幕（无字幕则 AI 语音转写），可选 AI 结构化总结。
+输入 B站 BV 号或链接，自动提取字幕（无字幕则 AI 语音转写）。
 
 ## 前置依赖
 
 - [Node.js](https://nodejs.org) >= 18
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) (B站视频信息获取)
 - [ffmpeg](https://ffmpeg.org) (音频转码)
-- [SiliconFlow API Key](https://cloud.siliconflow.cn/account/ak) (AI 转写/总结)
+- [SiliconFlow API Key](https://cloud.siliconflow.cn/account/ak) (AI 转写)
 
 ## 快速开始
 
@@ -36,17 +36,11 @@ cd project && npm run dev
 ## 工作流
 
 ```
-输入 BV 号
+输入 BV 号（支持多个，逗号/换行分隔）
   │
   ├─ 有字幕 → 直接提取 → 展示文字
   │
   └─ 无字幕 → 下载音频 → Qwen3-Omni 转写 → 展示文字
-                    │
-                    ▼
-          用户点击「AI 视频总结」
-                    │
-          用自选模型生成结构化总结
-          (核心观点 / 内容大纲 / 关键细节 / 一句话总结)
 ```
 
 ## 模型分工
@@ -54,7 +48,6 @@ cd project && npm run dev
 | 环节 | 模型 | 说明 |
 |------|------|------|
 | 提取/转写 | Qwen3-Omni-30B-A3B-Thinking | 固定，支持文本+音频 |
-| 分析/总结 | 用户自选 | 设置页可选预设或自定义 |
 
 ## 项目结构
 
@@ -81,6 +74,5 @@ video/
 | 端点 | 方法 | 用途 |
 |------|------|------|
 | `/api/process` | POST | 提取视频信息 + 字幕/转写 |
-| `/api/summarize` | POST | AI 视频总结 |
 | `/api/info` | POST | 获取视频信息 |
 | `/health` | GET | 健康检查 |

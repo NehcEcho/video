@@ -9,12 +9,29 @@ import { HistorySidebar } from "./components/HistorySidebar";
 import { processVideo, VideoInfo, SubtitleSegment, StepEvent, SubtitleData } from "@/services/api";
 import { getApiKey, getHistory, saveHistoryEntry, deleteHistoryEntry, HistoryEntry } from "@/services/storage";
 
-type AppState = "idle" | "processing" | "completed";
-
 interface Step {
   id: string;
   label: string;
   status: "pending" | "processing" | "completed" | "error";
+}
+
+interface Task {
+  id: string;
+  state: "processing" | "completed" | "error";
+  steps: Step[];
+  videoInfo: VideoInfo | null;
+  subtitleText: string;
+  subtitleSegments: SubtitleSegment[];
+  isTranscribed: boolean;
+  errorMsg: string;
+}
+
+interface TaskMeta {
+  title: string;
+  author: string;
+  thumbnail: string;
+  bvid: string;
+  subtitleText: string;
 }
 
 const INITIAL_STEPS: Step[] = [
@@ -25,32 +42,43 @@ const INITIAL_STEPS: Step[] = [
   { id: "complete", label: "提取完成", status: "pending" },
 ];
 
+const BV_REGEX = /BV[a-zA-Z0-9]{10}/;
+const BILIBILI_URL_REGEX = /bilibili\.com\/video\/(BV[a-zA-Z0-9]{10})/;
+
+function extractMultipleBvids(input: string): string[] {
+  const segments = input.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
+  const bvids: string[] = [];
+  const seen = new Set<string>();
+  for (const seg of segments) {
+    const urlMatch = seg.match(BILIBILI_URL_REGEX);
+    const bvid = urlMatch ? urlMatch[1] : seg.match(BV_REGEX)?.[0];
+    if (bvid && !seen.has(bvid)) {
+      seen.add(bvid);
+      bvids.push(bvid);
+    }
+  }
+  return bvids;
+}
+
 export default function App() {
-  const [appState, setAppState] = useState<AppState>("idle");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS);
-  const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
-  const [subtitleText, setSubtitleText] = useState("");
-  const [subtitleSegments, setSubtitleSegments] = useState<SubtitleSegment[]>([]);
-  const [isTranscribed, setIsTranscribed] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [historyItems, setHistoryItems] = useState<HistoryEntry[]>(() => getHistory());
 
-  const currentRef = useRef({ title: "", author: "", thumbnail: "", bvid: "", subtitleText: "" });
+  const taskMetaRef = useRef<Record<string, TaskMeta>>({});
 
-  const saveToHistory = useCallback(() => {
-    const cur = currentRef.current;
-    if (!cur.bvid || !cur.title) return;
+  const saveTaskToHistory = useCallback((taskId: string) => {
+    const meta = taskMetaRef.current[taskId];
+    if (!meta?.bvid || !meta?.title) return;
     saveHistoryEntry({
-      bvid: cur.bvid,
-      title: cur.title,
-      author: cur.author,
-      thumbnail: cur.thumbnail,
+      bvid: meta.bvid,
+      title: meta.title,
+      author: meta.author,
+      thumbnail: meta.thumbnail,
       timestamp: new Date().toLocaleString(),
-      subtitleText: cur.subtitleText,
+      subtitleText: meta.subtitleText,
     });
     setHistoryItems(getHistory());
   }, []);
@@ -59,15 +87,22 @@ export default function App() {
     const items = getHistory();
     const item = items.find(h => h.id === id);
     if (!item) return;
-    setVideoInfo({
+    const taskId = `${Date.now()}-history-${Math.random().toString(36).slice(2, 6)}`;
+    const videoInfo: VideoInfo = {
       bvid: item.bvid, title: item.title, author: item.author,
       duration: 0, views: 0, description: "", thumbnail: item.thumbnail,
       cid: "", hasSubtitles: !!item.subtitleText,
-    });
-    setSubtitleText(item.subtitleText);
-    setSubtitleSegments([]);
-    setIsTranscribed(false);
-    setAppState("completed");
+    };
+    setTasks([{
+      id: taskId,
+      state: "completed",
+      steps: INITIAL_STEPS.map(s => ({ ...s, status: "completed" as const })),
+      videoInfo,
+      subtitleText: item.subtitleText,
+      subtitleSegments: [],
+      isTranscribed: false,
+      errorMsg: "",
+    }]);
     setHistoryOpen(false);
   }, []);
 
@@ -75,74 +110,88 @@ export default function App() {
     setHistoryItems(getHistory());
   }, []);
 
-  const handleSubmit = async (input: string, mode: TranscribeMode) => {
+  const handleSubmit = useCallback((input: string, mode: TranscribeMode) => {
     const apiKey = getApiKey();
     if (!apiKey) {
       setSettingsOpen(true);
       return;
     }
 
-    setAppState("processing");
-    setSteps(INITIAL_STEPS.map(s => ({ ...s })));
-    setVideoInfo(null);
-    setSubtitleText("");
-    setSubtitleSegments([]);
-    setIsTranscribed(false);
-    setErrorMsg("");
+    const bvids = extractMultipleBvids(input);
+    if (bvids.length === 0) return;
 
-    currentRef.current = { title: "", author: "", thumbnail: "", bvid: "", subtitleText: "" };
-
-    const updateStep = (stepId: string, status: Step["status"], label?: string) => {
-      setSteps(prev => prev.map(s =>
-        s.id === stepId ? { ...s, status, ...(label ? { label } : {}) } : s
-      ));
-    };
-
-    await processVideo(input, apiKey, mode, {
-      onStep: (event: StepEvent) => {
-        updateStep(event.step, event.status, event.label);
-      },
-      onVideoInfo: (info: VideoInfo) => {
-        setVideoInfo(info);
-        currentRef.current.bvid = info.bvid;
-        currentRef.current.title = info.title;
-        currentRef.current.author = info.author;
-        currentRef.current.thumbnail = info.thumbnail;
-      },
-      onSubtitle: (data: SubtitleData) => {
-        setSubtitleText(data.text);
-        setSubtitleSegments(data.segments);
-        setIsTranscribed(!!data.isTranscribed);
-        currentRef.current.subtitleText = data.text;
-      },
-      onTranscribeToken: (token) => {
-        setSubtitleText(prev => {
-          const next = prev + token;
-          currentRef.current.subtitleText = next;
-          return next;
-        });
-      },
-      onDone: () => {
-        setAppState("completed");
-        saveToHistory();
-      },
-      onError: (error: string) => {
-        setErrorMsg("提取失败: " + error);
-        setAppState("completed");
-      },
+    const newTasks: Task[] = bvids.map((bvid, i) => {
+      const id = `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`;
+      taskMetaRef.current[id] = { title: "", author: "", thumbnail: "", bvid, subtitleText: "" };
+      return {
+        id,
+        state: "processing" as const,
+        steps: INITIAL_STEPS.map(s => ({ ...s })),
+        videoInfo: null,
+        subtitleText: "",
+        subtitleSegments: [],
+        isTranscribed: false,
+        errorMsg: "",
+      };
     });
-  };
 
-  const handleSaveSettings = () => {};
+    setTasks(newTasks);
+
+    newTasks.forEach(task => {
+      const taskId = task.id;
+      const bvid = taskMetaRef.current[taskId].bvid;
+
+      processVideo(bvid, apiKey, mode, {
+        onStep: (event: StepEvent) => {
+          setTasks(prev => prev.map(t => {
+            if (t.id !== taskId) return t;
+            return {
+              ...t,
+              steps: t.steps.map(s =>
+                s.id === event.step ? { ...s, status: event.status, ...(event.label ? { label: event.label } : {}) } : s
+              ),
+            };
+          }));
+        },
+        onVideoInfo: (info: VideoInfo) => {
+          const meta = taskMetaRef.current[taskId];
+          if (meta) {
+            meta.title = info.title;
+            meta.author = info.author;
+            meta.thumbnail = info.thumbnail;
+          }
+          setTasks(prev => prev.map(t => t.id === taskId ? { ...t, videoInfo: info } : t));
+        },
+        onSubtitle: (data: SubtitleData) => {
+          const meta = taskMetaRef.current[taskId];
+          if (meta) meta.subtitleText = data.text;
+          setTasks(prev => prev.map(t => t.id === taskId ? {
+            ...t, subtitleText: data.text, subtitleSegments: data.segments, isTranscribed: !!data.isTranscribed,
+          } : t));
+        },
+        onTranscribeToken: (token: string) => {
+          setTasks(prev => prev.map(t => {
+            if (t.id !== taskId) return t;
+            const newText = t.subtitleText + token;
+            const meta = taskMetaRef.current[taskId];
+            if (meta) meta.subtitleText = newText;
+            return { ...t, subtitleText: newText };
+          }));
+        },
+        onDone: () => {
+          setTasks(prev => prev.map(t => t.id === taskId ? { ...t, state: "completed" } : t));
+          saveTaskToHistory(taskId);
+        },
+        onError: (error: string) => {
+          setTasks(prev => prev.map(t => t.id === taskId ? { ...t, state: "error", errorMsg: "提取失败: " + error } : t));
+        },
+      }).catch(() => {});
+    });
+  }, [saveTaskToHistory]);
 
   const handleReset = () => {
-    setAppState("idle");
-    setSteps(INITIAL_STEPS.map(s => ({ ...s })));
-    setVideoInfo(null);
-    setSubtitleText("");
-    setSubtitleSegments([]);
-    setIsTranscribed(false);
-    setErrorMsg("");
+    setTasks([]);
+    taskMetaRef.current = {};
   };
 
   const formatDuration = (seconds: number): string => {
@@ -158,16 +207,16 @@ export default function App() {
     return String(views);
   };
 
-  const displayVideoInfo = videoInfo ? {
-    bvid: videoInfo.bvid,
-    title: videoInfo.title,
-    author: videoInfo.author,
-    duration: formatDuration(videoInfo.duration),
-    views: formatViews(videoInfo.views),
-    thumbnail: videoInfo.thumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=225&fit=crop",
-  } : null;
+  const formatVideoInfo = (info: VideoInfo) => ({
+    bvid: info.bvid,
+    title: info.title,
+    author: info.author,
+    duration: formatDuration(info.duration),
+    views: formatViews(info.views),
+    thumbnail: info.thumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=225&fit=crop",
+  });
 
-  const hasText = subtitleText.length > 0;
+  const allDone = tasks.length > 0 && tasks.every(t => t.state === "completed" || t.state === "error");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30">
@@ -180,61 +229,84 @@ export default function App() {
       />
 
       <main className="pt-8 pb-16">
-        {appState === "idle" && (
+        {tasks.length === 0 && (
           <VideoInput onSubmit={handleSubmit} isProcessing={false} />
         )}
 
-        {(appState === "processing" || appState === "completed") && (
+        {tasks.length > 0 && (
           <>
-            <div className="pt-6">
-              {displayVideoInfo && <VideoInfoCard info={displayVideoInfo} />}
-            </div>
+            {tasks.map((task, i) => {
+              const hasText = task.subtitleText.length > 0;
+              const displayInfo = task.videoInfo ? formatVideoInfo(task.videoInfo) : null;
+              const showTranscribeStep = task.steps.some(s => s.id === "transcribe" && s.status !== "pending");
 
-            {appState === "processing" && (
-              <ProcessingStatus steps={steps.filter(s => {
-                if (s.id === "transcribe" && s.status === "pending") return false;
-                return true;
-              })} />
-            )}
-
-            {appState === "completed" && (
-              <>
-                {hasText && (
-                  <TranscriptResult
-                    segments={subtitleSegments.length > 0
-                      ? subtitleSegments.map(s => ({
-                          time: formatDuration(s.start),
-                          text: s.text,
-                        }))
-                      : subtitleText.split("\n").filter(Boolean).map((text, i) => ({
-                          time: "",
-                          text,
-                        }))
-                    }
-                    fullText={subtitleText}
-                    label={isTranscribed ? "AI 转写结果" : "字幕结果"}
-                  />
-                )}
-
-                {!hasText && errorMsg && (
-                  <div className="w-full max-w-3xl mx-auto px-6 pb-6">
-                    <div className="bg-red-50 rounded-xl border border-red-200 p-4 text-center">
-                      <p className="text-red-700 text-sm font-medium mb-1">提取失败</p>
-                      <p className="text-red-600 text-xs font-mono break-all">{errorMsg}</p>
-                      <p className="text-red-400 text-xs mt-1">请检查 API Key 是否正确</p>
+              return (
+                <div key={task.id}>
+                  {i > 0 && (
+                    <div className="w-full max-w-3xl mx-auto px-6 my-8">
+                      <div className="border-t-2 border-dashed border-gray-200" />
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <div className="w-full max-w-3xl mx-auto px-6 pb-12">
-                  <button
-                    onClick={handleReset}
-                    className="w-full h-12 rounded-xl border-2 border-dashed border-teal-300 hover:border-teal-400 hover:bg-teal-50/50 text-teal-700 font-medium transition-colors"
-                  >
-                    处理新视频
-                  </button>
+                  {task.state === "processing" && (
+                    <div className="w-full max-w-3xl mx-auto px-6 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span className="font-mono text-xs px-2 py-0.5 rounded bg-teal-50 text-teal-700">
+                          {taskMetaRef.current[task.id]?.bvid || "..."}
+                        </span>
+                        <span>处理中</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {displayInfo && <VideoInfoCard info={displayInfo} />}
+
+                  {task.state === "processing" && (
+                    <ProcessingStatus steps={task.steps.filter(s => {
+                      if (s.id === "transcribe" && !showTranscribeStep) return false;
+                      return true;
+                    })} />
+                  )}
+
+                  {task.state === "completed" && hasText && (
+                    <TranscriptResult
+                      segments={task.subtitleSegments.length > 0
+                        ? task.subtitleSegments.map(s => ({
+                            time: formatDuration(s.start),
+                            text: s.text,
+                          }))
+                        : task.subtitleText.split("\n").filter(Boolean).map((text, idx) => ({
+                            time: "",
+                            text,
+                          }))
+                      }
+                      fullText={task.subtitleText}
+                      label={task.isTranscribed ? "AI 转写结果" : "字幕结果"}
+                    />
+                  )}
+
+                  {(task.state === "error" || (task.state === "completed" && !hasText && task.errorMsg)) && (
+                    <div className="w-full max-w-3xl mx-auto px-6 pb-6">
+                      <div className="bg-red-50 rounded-xl border border-red-200 p-4 text-center">
+                        <p className="text-red-700 text-sm font-medium mb-1">提取失败</p>
+                        <p className="text-red-600 text-xs font-mono break-all">{task.errorMsg}</p>
+                        <p className="text-red-400 text-xs mt-1">请检查 API Key 是否正确</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </>
+              );
+            })}
+
+            {allDone && (
+              <div className="w-full max-w-3xl mx-auto px-6 pb-12">
+                <button
+                  onClick={handleReset}
+                  className="w-full h-12 rounded-xl border-2 border-dashed border-teal-300 hover:border-teal-400 hover:bg-teal-50/50 text-teal-700 font-medium transition-colors"
+                >
+                  处理新视频
+                </button>
+              </div>
             )}
           </>
         )}
@@ -243,7 +315,7 @@ export default function App() {
       <SettingsDrawer
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        onSave={handleSaveSettings}
+        onSave={() => {}}
       />
       <HistorySidebar
         isOpen={historyOpen}

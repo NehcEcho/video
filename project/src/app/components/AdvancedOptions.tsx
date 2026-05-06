@@ -84,18 +84,8 @@ export function AdvancedOptions() {
 
             <div className="flex items-center justify-between py-2">
               <div>
-                <p className="text-sm text-foreground">智能摘要</p>
-                <p className="text-xs text-muted-foreground">生成内容摘要和关键词</p>
-              </div>
-              <button className="relative w-11 h-6 bg-gray-200 rounded-full transition-colors">
-                <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform" />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between py-2">
-              <div>
                 <p className="text-sm text-foreground">并行处理</p>
-                <p className="text-xs text-muted-foreground">多任务同时转写（需要更多资源）</p>
+                <p className="text-xs text-muted-foreground">多视频同时转写（需要更多资源）</p>
               </div>
               <button className="relative w-11 h-6 bg-teal-500 rounded-full transition-colors">
                 <span className="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform" />

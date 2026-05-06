@@ -42,7 +42,7 @@ export function VideoInput({ onSubmit, isProcessing }: VideoInputProps) {
           <span className="text-xs text-teal-700">智能音频转写</span>
         </div>
         <h2 className="text-2xl mb-2 text-foreground">开始转写视频</h2>
-        <p className="text-sm text-muted-foreground">支持 B 站视频链接或 BV 号</p>
+        <p className="text-sm text-muted-foreground">支持粘贴多个 B 站链接或 BV 号（逗号/空格/换行分隔）</p>
       </div>
 
       <form onSubmit={handleSubmit} className="relative">
