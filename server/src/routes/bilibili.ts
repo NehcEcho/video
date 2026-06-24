@@ -4,6 +4,7 @@ import {
   getVideoInfo,
   extractSubtitles,
   getAudioUrl,
+  getVideoUrl,
   downloadAudio,
   VideoInfo,
   SubtitleSegment,
@@ -12,12 +13,16 @@ import {
   transcodeToMono16k,
   audioToBase64,
   cleanupFile,
+  convertToMp3,
+  mergeToMp4,
 } from "../services/ffmpeg.js";
 import {
   transcribeAudio,
 } from "../services/siliconflow.js";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
+import { stat, unlink } from "fs/promises";
+import { createReadStream } from "fs";
 
 const TEMP_DIR = join(process.cwd(), "temp");
 
@@ -143,6 +148,76 @@ router.post("/info", async (req: Request, res: Response) => {
     res.json(info);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/download/video/:bvid", async (req: Request, res: Response) => {
+  const { bvid } = req.params;
+  ensureTempDir();
+
+  try {
+    const videoInfo = await getVideoInfo(bvid);
+    const cid = videoInfo.cid;
+
+    const videoUrl = await getVideoUrl(bvid, cid);
+    const audioUrl = await getAudioUrl(bvid, cid);
+
+    const videoPath = join(TEMP_DIR, `${bvid}_video_tmp`);
+    const audioPath = join(TEMP_DIR, `${bvid}_audio_tmp`);
+    const outputPath = join(TEMP_DIR, `${bvid}.mp4`);
+
+    await downloadAudio(videoUrl, videoPath);
+    await downloadAudio(audioUrl, audioPath);
+
+    await mergeToMp4(videoPath, audioPath, outputPath);
+
+    await cleanupFile(videoPath);
+    await cleanupFile(audioPath);
+
+    const stats = await stat(outputPath);
+    res.setHeader("Content-Type", "video/mp4");
+    res.setHeader("Content-Disposition", `attachment; filename="${bvid}.mp4"`);
+    res.setHeader("Content-Length", stats.size);
+
+    const stream = createReadStream(outputPath);
+    stream.pipe(res);
+    res.on("close", () => unlink(outputPath).catch(() => {}));
+  } catch (e: any) {
+    if (!res.headersSent) {
+      res.status(500).json({ error: e.message || "视频下载失败" });
+    }
+  }
+});
+
+router.get("/download/audio/:bvid", async (req: Request, res: Response) => {
+  const { bvid } = req.params;
+  ensureTempDir();
+
+  try {
+    const videoInfo = await getVideoInfo(bvid);
+    const cid = videoInfo.cid;
+
+    const audioUrl = await getAudioUrl(bvid, cid);
+
+    const rawPath = join(TEMP_DIR, `${bvid}_audio_raw`);
+    const mp3Path = join(TEMP_DIR, `${bvid}.mp3`);
+
+    await downloadAudio(audioUrl, rawPath);
+    await convertToMp3(rawPath, mp3Path);
+    await cleanupFile(rawPath);
+
+    const stats = await stat(mp3Path);
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Disposition", `attachment; filename="${bvid}.mp3"`);
+    res.setHeader("Content-Length", stats.size);
+
+    const stream = createReadStream(mp3Path);
+    stream.pipe(res);
+    res.on("close", () => unlink(mp3Path).catch(() => {}));
+  } catch (e: any) {
+    if (!res.headersSent) {
+      res.status(500).json({ error: e.message || "音频下载失败" });
+    }
   }
 });
 

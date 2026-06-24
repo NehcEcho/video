@@ -183,3 +183,29 @@ export async function extractAudio(bvid: string): Promise<string> {
 export function getAudioFilePath(bvid: string): string {
   return join(TEMP_DIR, `${bvid}_audio.wav`);
 }
+
+export async function downloadVideo(bvid: string, outputPath: string): Promise<string> {
+  const url = `https://www.bilibili.com/video/${bvid}`;
+  await runYtDlp([
+    "-f", "bv*+ba/b",
+    "--output", outputPath,
+    "--no-playlist",
+    "--no-keep-video",
+    url,
+  ], 600000);
+  return outputPath;
+}
+
+export async function downloadAudioAsMp3(bvid: string, outputPath: string): Promise<string> {
+  const url = `https://www.bilibili.com/video/${bvid}`;
+  await runYtDlp([
+    "--extract-audio",
+    "--audio-format", "mp3",
+    "--audio-quality", "0",
+    "--output", outputPath,
+    "--no-playlist",
+    "--no-keep-video",
+    url,
+  ], 300000);
+  return outputPath;
+}

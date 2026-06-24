@@ -29,6 +29,30 @@ export async function audioToBase64(filePath: string): Promise<string> {
   return buffer.toString("base64");
 }
 
+export async function convertToMp3(inputPath: string, outputPath: string): Promise<string> {
+  await execFileAsync("ffmpeg", [
+    "-i", inputPath,
+    "-vn",
+    "-acodec", "libmp3lame",
+    "-ab", "192k",
+    "-y",
+    outputPath,
+  ], { timeout: 300000 });
+  return outputPath;
+}
+
+export async function mergeToMp4(videoPath: string, audioPath: string, outputPath: string): Promise<string> {
+  await execFileAsync("ffmpeg", [
+    "-i", videoPath,
+    "-i", audioPath,
+    "-c:v", "copy",
+    "-c:a", "aac",
+    "-y",
+    outputPath,
+  ], { timeout: 300000 });
+  return outputPath;
+}
+
 export async function cleanupFile(filePath: string): Promise<void> {
   try {
     if (existsSync(filePath)) {

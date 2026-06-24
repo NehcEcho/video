@@ -288,6 +288,31 @@ export default function App() {
 
                   {displayInfo && <VideoInfoCard info={displayInfo} />}
 
+                  {task.state === "completed" && taskMetaRef.current[task.id]?.bvid && (
+                    <div className="w-full max-w-3xl mx-auto px-6 mb-4">
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`/api/download/video/${taskMetaRef.current[task.id].bvid}`}
+                          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-xs font-medium transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          下载视频
+                        </a>
+                        <a
+                          href={`/api/download/audio/${taskMetaRef.current[task.id].bvid}`}
+                          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-xs font-medium transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                          </svg>
+                          下载音频
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
                   {task.state === "processing" && (
                     <ProcessingStatus steps={task.steps.filter(s => {
                       if (s.id === "transcribe" && !showTranscribeStep) return false;

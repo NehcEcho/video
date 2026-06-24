@@ -185,6 +185,24 @@ export async function getAudioUrl(bvid: string, cid: string): Promise<string> {
   throw new Error("No audio URL found in playurl response");
 }
 
+export async function getVideoUrl(bvid: string, cid: string): Promise<string> {
+  const data = await biliFetch("/x/player/wbi/playurl", {
+    bvid, cid, fnval: 16, fourk: 1,
+  }, true);
+
+  const dash = data?.dash;
+  if (dash?.video?.length > 0) {
+    return dash.video[0].baseUrl || dash.video[0].base_url || dash.video[0].url || "";
+  }
+
+  const durl = data?.durl;
+  if (durl?.length > 0 && durl[0].url) {
+    return durl[0].url;
+  }
+
+  throw new Error("No video URL found in playurl response");
+}
+
 export async function downloadAudio(audioUrl: string, outputPath: string): Promise<void> {
   const res = await fetch(audioUrl, {
     headers: {

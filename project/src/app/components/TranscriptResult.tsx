@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Copy, Check, FileText, List } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Copy, Check, FileText, List, AlertTriangle } from "lucide-react";
 
 interface TranscriptSegment {
   time: string;
@@ -14,14 +14,53 @@ interface TranscriptResultProps {
 
 export function TranscriptResult({ segments, fullText, label = "转写结果" }: TranscriptResultProps) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [viewMode, setViewMode] = useState<"full" | "segments">("full");
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const handleCopy = () => {
-    const textToCopy = viewMode === "full" ? fullText : segments.map(s => `[${s.time}] ${s.text}`).join("\n");
-    navigator.clipboard.writeText(textToCopy);
+  const resetCopyState = useCallback(() => {
+    setCopied(false);
+    setCopyFailed(false);
+  }, []);
+
+  const showCopied = useCallback(() => {
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+    setCopyFailed(false);
+    clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = setTimeout(resetCopyState, 2000);
+  }, [resetCopyState]);
+
+  const showFailed = useCallback(() => {
+    setCopyFailed(true);
+    setCopied(false);
+    clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = setTimeout(resetCopyState, 2000);
+  }, [resetCopyState]);
+
+  const fallbackCopy = useCallback((text: string) => {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand("copy");
+      showCopied();
+    } catch {
+      showFailed();
+    }
+    document.body.removeChild(textarea);
+  }, [showCopied, showFailed]);
+
+  const handleCopy = useCallback(() => {
+    const textToCopy = viewMode === "full" ? fullText : segments.map(s => `[${s.time}] ${s.text}`).join("\n");
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(showCopied).catch(() => fallbackCopy(textToCopy));
+    } else {
+      fallbackCopy(textToCopy);
+    }
+  }, [viewMode, fullText, segments, showCopied, fallbackCopy]);
 
   return (
     <div className="w-full max-w-4xl mx-auto px-6 pb-12">
@@ -63,9 +102,14 @@ export function TranscriptResult({ segments, fullText, label = "转写结果" }:
 
             <button
               onClick={handleCopy}
-              className="h-9 px-4 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium transition-colors flex items-center gap-2"
+              className={`h-9 px-4 rounded-lg text-white text-sm font-medium transition-colors flex items-center gap-2 ${copyFailed ? "bg-red-500 hover:bg-red-600" : "bg-teal-500 hover:bg-teal-600"}`}
             >
-              {copied ? (
+              {copyFailed ? (
+                <>
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>复制失败</span>
+                </>
+              ) : copied ? (
                 <>
                   <Check className="w-4 h-4" />
                   <span>已复制</span>
